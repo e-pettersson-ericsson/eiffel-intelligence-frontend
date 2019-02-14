@@ -8,67 +8,65 @@ services:
 jdk:
   - oraclejdk8
 
-env:
-  - EI_BACKEND_PORT=8099 MONGODB_PORT=27017 RABBITMQ_AMQP_PORT=5672 RABBITMQ_WEB_PORT=15672 EIFFEL_ER_PORT=8084 JENKINS_PORT=8081 MAIL_SMTP_PORT=1025 MAIL_WEB_PORT=8025
-
 
 # Using default 'test' stage for our tests, and only running deploy stage
 # (after merge) on master branch
 stages:
   - test
-  - name: deploy
-    if: branch = master
+  - name: site_documentation
+    if: branch = test-release-notes
+  - name: release
+    if: branch = test-release-notes
+
+# To prevent Travis from also running build on pushed tags
+# (and have endless loop of builds for every git push --tags)
+branches:
+  except:
+    - /^[0-9]+\.[0-9]+\.[0-9]+$/
 
 
-before_install:
-  - git clone --depth=50 --branch=master https://github.com/eiffel-community/eiffel-intelligence.git
-  - cd eiffel-intelligence
-  - docker-compose up -d
-
-
-install:
-  - chmod +x pom.xml
-  - mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V
-  - cd target
-  - export EIFFEL_WAR=$(ls *.war)
-  - java -Dspring.config.location=file:../../src/integrationtest/resources/integration-test.properties -Dserver.port=${EI_BACKEND_PORT} -jar ${EIFFEL_WAR} &
-  - cd ../..
-
-
-after_script:
-  - cd eiffel-intelligence
-  - docker-compose down
-  - fuser -k ${EI_BACKEND_PORT}/tcp
-
-
-# Generate site documentation using mvn site plugin
+# Check which deploy provider. Before site documentation deployment we need to generate the pages
+# Before release we need to confirm the git tag is correct and prepare release notes
+# export the git tag pointing to the current commit - must be done here to be accessible for release job
 before_deploy:
-  - rm -rf docs
-  - mvn site -B
+  - echo $TRAVIS_JOB_NAME
+  - if [[ $TRAVIS_JOB_NAME = site_documentation ]]; then rm -rf docs && mvn site -B; fi
+  - |
+    if [[ $TRAVIS_JOB_NAME = release ]]; then
+      git fetch --tags -q
+      export GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)
+      ./prepare_release.sh $GIT_TAG;
+    fi
 
 
 # List of jobs to run, tied to specific stages
 jobs:
   include:
     - stage: test
-      name: functionalTests
-      before_install: skip
+      name: test
       install: skip
       script:
-        - mvn test -B
-      after_script: skip
-    - stage: test
-      name: integrationTests
-      script:
-        - "mvn verify -DskipUTs -Dei.backend.instances.list.json.content=\"[{ 'contextPath': '', 'port': '${EI_BACKEND_PORT}', 'name': 'EI-Backend-1', 'host': 'localhost', 'https': false, 'defaultBackend': true}]\" -B"
-    - stage: deploy
-      name: deployGitHubPages
-      before_install: skip    # do not run again
-      install: skip           # do not run again
-      script: skip            # do not run default test scripts
-      after_script: skip      # do not run again
+        - echo "testing"
+    - stage: site_documentation
+      name: site_documentation
+      install: skip
+      script: skip
       deploy:
         provider: pages
         skip_cleanup: true
-        github-token: $GITHUB_TOKEN
+        github-token: $GREN_GITHUB_TOKEN
         local_dir: docs/
+        on:
+          branch: test-release-notes
+    - stage: release
+      name: release
+      install: skip
+      script: skip          # skip default tests
+      deploy:
+        provider: releases
+        name: $GIT_TAG
+        tag_name: $GIT_TAG
+        api_key: $GREN_GITHUB_TOKEN
+        skip_cleanup: true
+        on:
+          all_branches: true
