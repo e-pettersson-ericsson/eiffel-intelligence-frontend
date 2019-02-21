@@ -24,16 +24,13 @@ branches:
   except:
     - /^[0-9]+\.[0-9]+\.[0-9]+$/
 
-# Prepare site documentation
+
+# Check which job. Before site documentation deployment we need to generate the pages
+# Before release we need to confirm the git tag is correct
 before_deploy:
-  - rm -rf docs
-  - mvn site -B
-
-
-# Run only after site_documentation. Check if we should release or not
-after_deploy:
   - echo $TRAVIS_JOB_NAME
-  - if [[ $TRAVIS_JOB_NAME = Release ]]; then ./prepare_release.sh; else travis_terminate 0; fi
+  - if [[ $TRAVIS_JOB_NAME = site_documentation ]]; then rm -rf docs && mvn site -B; fi
+  - if [[ $TRAVIS_JOB_NAME = release ]]; then ./prepare_release.sh; else travis_terminate 0; fi
 
 
 # List of jobs to run, tied to specific stages
@@ -59,8 +56,6 @@ jobs:
       name: release
       install: skip
       script: skip          # skip default tests
-      before_deploy: skip
-      after_deploy: skip    # we don't want to release twice
       deploy:
         provider: releases
         name: $GIT_TAG
