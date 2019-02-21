@@ -8,15 +8,12 @@ services:
 jdk:
   - oraclejdk8
 
-env:
-  - global:
-    - SHOULD_RELEASE=false
 
 # Using default 'test' stage for our tests, and only running deploy stage
 # (after merge) on master branch
 stages:
-  - prepare_release
-  - release
+  - name: release
+    if: branch = test-release-notes AND type != pull_request
 
 # To prevent Travis from also running build on pushed tags
 # (and have endless loop of builds for every git push --tags)
@@ -24,6 +21,17 @@ branches:
   except:
     - /^[0-9]+\.[0-9]+\.[0-9]+$/
 
+before_deploy:
+  - git fetch --tags -q
+  - export GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)    # export the git tag pointing to the current commit
+  - echo $GIT_TAG
+  - export REGEX=^[0-9]+\.[0-9]+\.[0-9]+$
+  - if [[ ! $GIT_TAG =~ $REGEX ]]; then travis_terminate(); fi
+  - npm install github-release-notes -g
+  - gren release --debug --tags=$GIT_TAG --data-source=commits -T $GREN_GITHUB_TOKEN;
+  - mvn versions:set -DnewVersion=$GIT_TAG -DgenerateBackupPoms=false   # Step version in pom file
+  - git status
+  - git diff pom.xml
 
 after_deploy:
   - if [[ $TRAVIS_BRANCH == "test-release-notes" ]] && [[ $TRAVIS_PULL_REQUEST == "false" ]]; then echo "will deploy"; else echo "will not deploy"; fi
@@ -32,14 +40,6 @@ after_deploy:
 # List of jobs to run, tied to specific stages
 jobs:
   include:
-    - stage: prepare_release
-      name: prepare_release
-      install: skip
-      script:
-        - git fetch --tags -q
-        - export GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)  # export the git tag pointing to the current commit
-        - echo $GIT_TAG $SHOULD_RELEASE
-        - ./prepare_release.sh $GIT_TAG $SHOULD_RELEASE
     - stage: release
       name: releaseToGitHub
       install: skip
@@ -52,4 +52,3 @@ jobs:
         skip_cleanup: true
         on:
           all_branches: true
-          condition: $SHOULD_RELEASE = true
