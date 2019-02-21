@@ -4,8 +4,6 @@
 # GIT_TAG is sent in to this script from travis
 
 REGEX=^[0-9]+\.[0-9]+\.[0-9]+$      # a regex matching git tags set by developers.
-git fetch --tags -q
-GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)    # export the git tag pointing to the current commit
 
 echo "Started script"
 

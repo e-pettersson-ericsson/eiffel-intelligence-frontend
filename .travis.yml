@@ -25,12 +25,19 @@ branches:
     - /^[0-9]+\.[0-9]+\.[0-9]+$/
 
 
-# Check which job. Before site documentation deployment we need to generate the pages
-# Before release we need to confirm the git tag is correct
+# Check which deploy provider. Before site documentation deployment we need to generate the pages
+# Before release we need to confirm the git tag is correct and prepare release notes
+# export the git tag pointing to the current commit - must be done here to be accessible for release job
 before_deploy:
   - echo $TRAVIS_JOB_NAME
   - if [[ $TRAVIS_JOB_NAME = site_documentation ]]; then rm -rf docs && mvn site -B; fi
-  - if [[ $TRAVIS_JOB_NAME = release ]]; then ./prepare_release.sh; else travis_terminate 0; fi
+  - |
+    if [[ $TRAVIS_JOB_NAME = release ]]; then
+      git fetch --tags -q
+      export GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)
+      ./prepare_release.sh $GIT_TAG;
+    fi
+
 
 
 # List of jobs to run, tied to specific stages
