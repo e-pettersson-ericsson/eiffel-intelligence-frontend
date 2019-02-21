@@ -12,6 +12,7 @@ jdk:
 # Using default 'test' stage for our tests, and only running deploy stage
 # (after merge) on master branch
 stages:
+  - site_documentation
   - release
 
 # To prevent Travis from also running build on pushed tags
@@ -22,9 +23,9 @@ branches:
 
 # Prepare site documentation
 before_deploy:
-  - # use ENV to determine site / release
-  - echo $SITE
-  - if [[ $SITE ]]; then rm -rf docs && mvn site -B; fi
+  - echo $TRAVIS_BUILD_STAGE_NAME
+  - if [[ $TRAVIS_BUILD_STAGE_NAME = Site_documentation ]]; then rm -rf docs && mvn site -B; fi
+  - if [[ $TRAVIS_BUILD_STAGE_NAME = ReleaseToGithub ]]; then ./prepare_release.sh; fi
   - echo "before deploy"
 
 
@@ -41,11 +42,10 @@ jobs:
       install: skip
       script:
         - echo "testing"
-    - stage: release
-      name: releaseToGitHub
+    - stage: site_documentation
+      name: site_documentation
       install: skip
-      script: skip          # skip default tests
-      before_deploy: skip
+      script: skip
       deploy:
         - provider: pages   # how to have multiple deploy jobs
           name: update_gh_pages
@@ -55,6 +55,11 @@ jobs:
           env: SITE=true
           on:
             branch: test-release-notes
+    - stage: release
+      name: releaseToGitHub
+      install: skip
+      script: skip          # skip default tests
+      deploy:
         - provider: releases
           name: $GIT_TAG
           tag_name: $GIT_TAG
