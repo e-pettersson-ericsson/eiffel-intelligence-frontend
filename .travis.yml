@@ -13,9 +13,9 @@ jdk:
 # (after merge) on master branch
 stages:
   - name: site_documentation
-    if: $TRAVIS_BRANCH = test-release-notes AND $TRAVIS_PULL_REQUEST = false
+    if: branch = test-release-notes AND type != pull_request
   - name: release
-    if: $TRAVIS_BRANCH = test-release-notes AND $TRAVIS_PULL_REQUEST = false
+    if: branch = test-release-notes AND type != pull_request
 
 # To prevent Travis from also running build on pushed tags
 # (and have endless loop of builds for every git push --tags)
