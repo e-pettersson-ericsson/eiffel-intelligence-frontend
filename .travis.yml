@@ -12,8 +12,10 @@ jdk:
 # Using default 'test' stage for our tests, and only running deploy stage
 # (after merge) on master branch
 stages:
-  - site_documentation
-  - release
+  - name: site_documentation
+    if: $TRAVIS_BRANCH = test-release-notes AND $TRAVIS_PULL_REQUEST = false
+  - name: release
+    if: $TRAVIS_BRANCH = test-release-notes AND $TRAVIS_PULL_REQUEST = false
 
 # To prevent Travis from also running build on pushed tags
 # (and have endless loop of builds for every git push --tags)
@@ -23,15 +25,14 @@ branches:
 
 # Prepare site documentation
 before_deploy:
-  - echo $TRAVIS_BUILD_STAGE_NAME
-  - if [[ $TRAVIS_BUILD_STAGE_NAME = Site_documentation ]]; then rm -rf docs && mvn site -B; fi
-  - if [[ $TRAVIS_BUILD_STAGE_NAME = ReleaseToGithub ]]; then ./prepare_release.sh; fi
-  - echo "before deploy"
+  - rm -rf docs
+  - mvn site -B
 
 
-# Last step in build checks if we should release or not
+# Run only after site_documentation. Check if we should release or not
 after_deploy:
-  - if [[ $TRAVIS_BRANCH == "test-release-notes" ]] && [[ $TRAVIS_PULL_REQUEST == "false" ]]; then ./prepare_release.sh; fi
+  - echo $TRAVIS_JOB_NAME
+  - if [[ $TRAVIS_JOB_NAME = Release ]]; then ./prepare_release.sh; else terminate_travis 0; fi
 
 
 # List of jobs to run, tied to specific stages
@@ -47,23 +48,24 @@ jobs:
       install: skip
       script: skip
       deploy:
-        - provider: pages   # how to have multiple deploy jobs
-          name: update_gh_pages
-          skip_cleanup: true
-          github-token: $GREN_GITHUB_TOKEN
-          local_dir: docs/
-          env: SITE=true
-          on:
-            branch: test-release-notes
+        provider: pages
+        skip_cleanup: true
+        github-token: $GREN_GITHUB_TOKEN
+        local_dir: docs/
+        on:
+          branch: test-release-notes
     - stage: release
-      name: releaseToGitHub
+      name: release
       install: skip
       script: skip          # skip default tests
+      before_deploy: skip
+      after_deploy: skip    # we don't want to release twice
       deploy:
-        - provider: releases
-          name: $GIT_TAG
-          tag_name: $GIT_TAG
-          api_key: $GREN_GITHUB_TOKEN
-          skip_cleanup: true
-          on:
-            all_branches: true
+        provider: releases
+        name: $GIT_TAG
+        tag_name: $GIT_TAG
+        api_key: $GREN_GITHUB_TOKEN
+        skip_cleanup: true
+        on:
+          all_branches: true
+          condition: $TRAVIS_BUILD_STAGE_NAME = Release_to_github
