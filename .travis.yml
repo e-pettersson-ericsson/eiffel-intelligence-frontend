@@ -12,6 +12,7 @@ jdk:
 # Using default 'test' stage for our tests, and only running deploy stage
 # (after merge) on master branch
 stages:
+  - test
   - name: site_documentation
     if: branch = test-release-notes AND type != pull_request
   - name: release
@@ -32,7 +33,7 @@ before_deploy:
 # Run only after site_documentation. Check if we should release or not
 after_deploy:
   - echo $TRAVIS_JOB_NAME
-  - if [[ $TRAVIS_JOB_NAME = Release ]]; then ./prepare_release.sh; else terminate_travis 0; fi
+  - if [[ $TRAVIS_JOB_NAME = Release ]]; then ./prepare_release.sh; else travis_terminate 0; fi
 
 
 # List of jobs to run, tied to specific stages
@@ -68,4 +69,3 @@ jobs:
         skip_cleanup: true
         on:
           all_branches: true
-          condition: $TRAVIS_BUILD_STAGE_NAME = Release_to_github
