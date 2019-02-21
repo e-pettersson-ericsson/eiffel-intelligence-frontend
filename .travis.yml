@@ -12,9 +12,7 @@ jdk:
 # Using default 'test' stage for our tests, and only running deploy stage
 # (after merge) on master branch
 stages:
-  - prepare_release
-  - name: release
-    if: branch = test-release-notes AND type != pull_request
+  - release
 
 # To prevent Travis from also running build on pushed tags
 # (and have endless loop of builds for every git push --tags)
@@ -22,42 +20,45 @@ branches:
   except:
     - /^[0-9]+\.[0-9]+\.[0-9]+$/
 
+# Prepare site documentation
 before_deploy:
-  - git fetch --tags -q
-  - export GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)    # export the git tag pointing to the current commit
-  - export REGEX=^[0-9]+\.[0-9]+\.[0-9]+$
-  - if [[ ! $GIT_TAG =~ $REGEX ]]; then echo "Skipping deployment since no correct tag was found" && travis_terminate 0; fi
-  - #npm install github-release-notes -g
-  - #gren release --debug --tags=$GIT_TAG --data-source=commits -T $GREN_GITHUB_TOKEN;
-  - #mvn versions:set -DnewVersion=$GIT_TAG -DgenerateBackupPoms=false   # Step version in pom file
-  - git status
-  - git diff pom.xml
+  - # use ENV to determine site / release
+  - echo $SITE
+  - if [[ $SITE ]]; then rm -rf docs && mvn site -B; fi
+  - echo "before deploy"
 
+
+# Last step in build checks if we should release or not
 after_deploy:
-  - if [[ $TRAVIS_BRANCH == "test-release-notes" ]] && [[ $TRAVIS_PULL_REQUEST == "false" ]]; then echo "will deploy"; else echo "will not deploy"; fi
+  - if [[ $TRAVIS_BRANCH == "test-release-notes" ]] && [[ $TRAVIS_PULL_REQUEST == "false" ]]; then ./prepare_release.sh; fi
 
 
 # List of jobs to run, tied to specific stages
 jobs:
   include:
-    - stage: prepare_release
-      name: prepare_release
-      install: skip
-      script: skip
-    - stage: release
-      name: siteDocumentation
+    - stage: test
+      name: test
       install: skip
       script:
-        - echo "site documentation here"
+        - echo "testing"
     - stage: release
       name: releaseToGitHub
       install: skip
       script: skip          # skip default tests
+      before_deploy: skip
       deploy:
-        provider: releases
-        name: $GIT_TAG
-        tag_name: $GIT_TAG
-        api_key: $GREN_GITHUB_TOKEN
-        skip_cleanup: true
-        on:
-          all_branches: true
+        - provider: pages   # how to have multiple deploy jobs
+          name: update_gh_pages
+          skip_cleanup: true
+          github-token: $GREN_GITHUB_TOKEN
+          local_dir: docs/
+          env: SITE=true
+          on:
+            branch: test-release-notes
+        - provider: releases
+          name: $GIT_TAG
+          tag_name: $GIT_TAG
+          api_key: $GREN_GITHUB_TOKEN
+          skip_cleanup: true
+          on:
+            all_branches: true

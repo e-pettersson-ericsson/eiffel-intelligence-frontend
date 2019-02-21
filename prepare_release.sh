@@ -5,17 +5,25 @@
 
 REGEX=^[0-9]+\.[0-9]+\.[0-9]+$      # a regex matching git tags set by developers.
 
+git fetch --tags -q
+GIT_TAG=$(git describe --tags $TRAVIS_COMMIT)    # export the git tag pointing to the current commit
+
+
 echo "Started script"
-
 echo $GIT_TAG
-echo $SHOULD_RELEASE
 
+# First we check if git tag is valid for release
 if [[ $GIT_TAG =~ $REGEX ]]; then
-    export SHOULD_RELEASE=true
-    echo $SHOULD_RELEASE
     echo "Generating release notes ..."
     npm install github-release-notes -g
-    gren release --debug --tags=$GIT_TAG --data-source=commits -T $GREN_GITHUB_TOKEN;
+    gren release --debug --tags=$GIT_TAG --data-source=commits -T $GREN_GITHUB_TOKEN
+
+    echo "Stepping versions in pom file to $GIT_TAG"
+    mvn versions:set -DnewVersion=$GIT_TAG -DgenerateBackupPoms=false   # Step version in pom file
+    git status
+    git diff pom.xml;
+
 else
-    echo "Skipping release because a correct git tag was not found";
+    echo "Skipping release because a correct git tag was not found"
+    travis_terminate 0;
 fi
