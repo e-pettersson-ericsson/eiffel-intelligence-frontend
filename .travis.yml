@@ -16,8 +16,10 @@ env:
 # (after merge) on master branch
 stages:
   - test
-  - name: deploy
+  - name: updateGitHubPages
     if: branch = master
+  - name: release
+    if: branch = test-commit-message-release
 
 
 before_install:
@@ -41,10 +43,15 @@ after_script:
   - fuser -k ${EI_BACKEND_PORT}/tcp
 
 
-# Generate site documentation using mvn site plugin
+# Check which deploy provider. Before updateGitHubPages we need to generate the pages
+# Before release we need to step version in pom and prepare release notes
 before_deploy:
-  - rm -rf docs
-  - mvn site -B
+  - echo $TRAVIS_JOB_NAME
+  - if [[ $TRAVIS_JOB_NAME = updateGitHubPages ]]; then rm -rf docs && mvn site -B; fi
+  - |
+    if [[ $TRAVIS_JOB_NAME = release ]]; then
+      ./prepare_release.sh $TRAVIS_COMMIT_MESSAGE;
+    fi
 
 
 # List of jobs to run, tied to specific stages
@@ -55,14 +62,11 @@ jobs:
       before_install: skip
       install: skip
       script:
-        - mvn test -B
+        - echo "test"
+        #- mvn test -B
       after_script: skip
-    - stage: test
-      name: integrationTests
-      script:
-        - "mvn verify -DskipUTs -Dei.backend.instances.list.json.content=\"[{ 'contextPath': '', 'port': '${EI_BACKEND_PORT}', 'name': 'EI-Backend-1', 'host': 'localhost', 'https': false, 'defaultBackend': true}]\" -B"
-    - stage: deploy
-      name: deployGitHubPages
+    - stage: updateGitHubPages
+      name: updateGitHubPages
       before_install: skip    # do not run again
       install: skip           # do not run again
       script: skip            # do not run default test scripts
@@ -70,5 +74,15 @@ jobs:
       deploy:
         provider: pages
         skip_cleanup: true
-        github-token: $GITHUB_TOKEN
+        github-token: $GREN_GITHUB_TOKEN    # only in fork repo
         local_dir: docs/
+    - stage: release
+      name: release
+      before_install: skip    # do not run again
+      install: skip           # do not run again
+      script: skip            # do not run again
+      after_script: skip      # do not run again
+      deploy:
+        provider: releases
+        skip_cleanup: true
+        api_key: $GREN_GITHUB_TOKEN     # only in fork repo
