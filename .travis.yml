@@ -5,6 +5,9 @@ language: java
 services:
   - docker
 
+python:
+  - "3.5"
+
 jdk:
   - oraclejdk8
 
@@ -19,6 +22,11 @@ stages:
   - updateGitHubPages
   - name: release
     if: branch = test-commit-message-release
+
+# To prevent Travis from also running build on pushed git tags
+branches:
+  except:
+    - /^[0-9]+\.[0-9]+\.[0-9]+$/
 
 
 before_install:
@@ -49,6 +57,8 @@ before_deploy:
   - if [[ $TRAVIS_JOB_NAME = updateGitHubPages ]]; then rm -rf docs && mvn site -B; fi
   - |
     if [[ $TRAVIS_JOB_NAME = release ]]; then
+      sudo apt -y install python3
+      python3 -V
       ./prepare_release.sh $TRAVIS_COMMIT_MESSAGE;
     fi
 
@@ -76,7 +86,7 @@ jobs:
         github-token: $GREN_GITHUB_TOKEN    # only in fork repo
         local_dir: docs/
         on:
-          all_branches: master
+          all_branches: true
     - stage: release
       name: release
       before_install: skip    # do not run again
