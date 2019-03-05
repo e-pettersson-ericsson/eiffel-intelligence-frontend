@@ -16,8 +16,7 @@ env:
 # (after merge) on master branch
 stages:
   - test
-  - name: updateGitHubPages
-    if: branch = master
+  - updateGitHubPages
   - name: release
     if: branch = test-commit-message-release
 
@@ -76,6 +75,8 @@ jobs:
         skip_cleanup: true
         github-token: $GREN_GITHUB_TOKEN    # only in fork repo
         local_dir: docs/
+        on:
+          all_branches: master
     - stage: release
       name: release
       before_install: skip    # do not run again
@@ -86,3 +87,5 @@ jobs:
         provider: releases
         skip_cleanup: true
         api_key: $GREN_GITHUB_TOKEN     # only in fork repo
+        on:
+          all_branches: true
