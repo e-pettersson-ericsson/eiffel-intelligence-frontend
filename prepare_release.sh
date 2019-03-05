@@ -2,7 +2,6 @@
 
 
 # Check if release should be performed, otherwise abort?
-export TRAVIS_COMMIT_MESSAGE="This is my second [RELEASE MAJOR] commit. \n I will try to perform a release [RELEASE MINOR] with this tag."
 
 echo "Evaluating commit message for release keywords ..."
 echo $TRAVIS_COMMIT_MESSAGE
@@ -18,20 +17,9 @@ else
     echo "Did not find matching keywords, will default to PATCH release";
 fi
 
-export changeVersion="minor"
-# converting to uppercase in if statements
-if [[ ${changeVersion^^} == "MINOR" ]]; then
-    echo "MINOR version change";
-
-elif [[ ${changeVersion^^} == "MAJOR" ]]; then
-    echo "MAJOR version change";
-
-elif [[ !${changeVersion} ]]; then
-    echo "Version change type not found in commit message. Defaulting to PATCH";
-fi;
 
 ## Step version in pom file
-    echo "Stepping version in pom file to " + ${newVersion}
+    echo "Stepping version in pom file to "
     # mvn versions ${newVersion}
 
 ## Create new git tag based on version
