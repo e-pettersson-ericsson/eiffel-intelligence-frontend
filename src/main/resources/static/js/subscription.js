@@ -1,61 +1,11 @@
 // Global vars
 var save_method;
-var table;
-var frontendServiceUrl;
 var defaultFormKeyValuePair = { "formkey": "", "formvalue": "" };
-var defaultFormKeyValuePairAuth = { "formkey": "Authorization", "formvalue": "" };
 
 jQuery(document).ready(function () {
 
     $('.modal-dialog').draggable({ handle: ".modal-header", cursor: 'move' });
 
-    // Fetch injected URL from DOM
-    frontendServiceUrl = $('#frontendServiceUrl').text();
-
-    // Check EI Backend Server Status ########################################
-    var backendStatus = false;
-    function checkBackendStatus() {
-        var EIConnBtn = document.getElementById("btnEIConnection");
-        if (EIConnBtn == null) {
-            return;
-        }
-        var red = "#ff0000";
-        var green = "#00ff00";
-        var callback = {
-            success: function (responseData, textStatus) {
-                if (backendStatus == false) {
-                    checkBackendSecured();
-                }
-                EIConnBtn.style.background = green;
-                backendStatus = true;
-            },
-            error: function (XMLHttpRequest, textStatus, errorThrown) {
-                if (XMLHttpRequest.status == 401) {
-                    doIfUserLoggedOut();
-                    EIConnBtn.style.background = green;
-                    backendStatus = true;
-                } else {
-                    doIfSecurityOff();
-                    EIConnBtn.style.background = red;
-                    backendStatus = false;
-                }
-            },
-            complete: function () {
-                if(table != undefined && table.rows().data().length == 0) {
-                    toggleCheckboxesDisabled(true);
-                } else {
-                    toggleCheckboxesDisabled(!backendStatus);
-                }
-                toggleOnBackendStatus(backendStatus);
-                setTimeout(loadSubButtons, 800);
-            }
-        };
-        var ajaxHttpSender = new AjaxHttpSender();
-        var contentType = "application/string; charset=utf-8";
-        var datatype = "text";
-        var contextPath = "/auth/checkStatus";
-        ajaxHttpSender.sendAjax(contextPath, "GET", null, callback, contentType, datatype);
-    }
     checkBackendStatus();
 
     function loadSubButtons() {
@@ -63,41 +13,14 @@ jQuery(document).ready(function () {
         $("#subButtons").show();
     }
 
-    timerInterval = window.setInterval(function () { checkBackendStatus(); }, 15000);
-
-    // Check if buttons should be enabled or disabled
-    // Toggle warning text on and off
-    // Check backend status to shrink or increase space for warning to show
-    function toggleOnBackendStatus(backendStatus) {
-        if (!backendStatus) {
-            addStatusIndicator(statusType.danger, statusText.backend_down);
-        }
-        if (backendStatus) {
-            removeStatusIndicator();
-        }
-        updateTable(backendStatus);
-    }
-
     function toggleCheckboxesDisabled(disabled) {
         $('#check-all').prop("disabled", disabled);
         $('.data-check').prop("disabled", disabled);
     }
-    
-    var previousStatus;
-    function updateTable(currentStatus) {
-        var statusChanged = (previousStatus != currentStatus);
-        if(statusChanged && !currentStatus){
-    	    table.clear().draw();
-        }
-        if(statusChanged && currentStatus){
-    	    reload_table();    		
-        }
-        previousStatus = currentStatus;
-    }
 
     // Check if EI Backend Server is online when Status Connection button is pressed.
     $("#btnEIConnection").click(function () {
-        checkBackendStatus();
+        updateBackendStatus();
     });
     // END OF EI Backend Server check #########################################
 
@@ -157,7 +80,7 @@ jQuery(document).ready(function () {
                 vm.restPost(true);
                 if (lastPressedRestPostBodyMediaType == "application/x-www-form-urlencoded") {
                     vm.formpostkeyvaluepairs(true);
-                    validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues(), validateOnlyKey, allowEmpty)
+                    validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues(), validateOnlyKey, allowEmpty);
                 } else {
                     validateMessageRawJson(this.notificationMessageRawJson(), allowEmpty);
                 }
@@ -175,7 +98,7 @@ jQuery(document).ready(function () {
             // Remember last restPostMediaType, when switching from MAIL we get back to the last used.
             lastPressedRestPostBodyMediaType = new_value;
             if (new_value == "application/x-www-form-urlencoded") {
-                validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues(), validateOnlyKey, allowEmpty)
+                validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues(), validateOnlyKey, allowEmpty);
                 vm.formpostkeyvaluepairs(true);
             } else {
                 vm.formpostkeyvaluepairs(false);
@@ -194,7 +117,7 @@ jQuery(document).ready(function () {
         });
 
         this.notificationMessageRawJson.subscribe(function (jsonData) {
-            validateMessageRawJson(jsonData)
+            validateMessageRawJson(jsonData);
         });
         // Subscribe END
     }
@@ -205,11 +128,11 @@ jQuery(document).ready(function () {
 
         this.formkey.subscribe(function (newText) {
             var validateOnlyKey = true;
-            validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues(), validateOnlyKey)
+            validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues(), validateOnlyKey);
         });
 
         this.formvalue.subscribe(function (newText) {
-            validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues())
+            validateNotificationMessageKeyValues(vm.subscription()[0].notificationMessageKeyValues());
         });
     }
 
@@ -239,7 +162,7 @@ jQuery(document).ready(function () {
         self.showPassword = ko.observable(false);
         self.setShowPassword = function (boolean) {
             self.showPassword(boolean);
-        }
+        };
         self.formpostkeyvaluepairsAuth = ko.observable(false);
         self.notificationType_in = ko.observableArray([
             { "value": "REST_POST", "label": "REST_POST", "id": "restPostRadio" },
@@ -251,7 +174,8 @@ jQuery(document).ready(function () {
         ]);
         self.authenticationType_in = ko.observableArray([
             { "text": "NO_AUTH", value: "NO_AUTH" },
-            { "text": "BASIC_AUTH", value: "BASIC_AUTH" }
+            { "text": "BASIC_AUTH", value: "BASIC_AUTH" },
+            { "text": "BASIC_AUTH Jenkins CSRF Protection (crumb)", value: "BASIC_AUTH_JENKINS_CSRF" }
         ]);
         self.repeat_in = ko.observableArray([
             { "value": true, "label": "Activate Repeat" }
@@ -263,7 +187,7 @@ jQuery(document).ready(function () {
             self.subscription()[0].requirements().push(new conditions_model(conditions_array));
 
             // Force update
-            var data = self.subscription().slice(0);
+            data = self.subscription().slice(0);
             self.subscription([]);
             self.subscription(data);
             self.subscription.valueHasMutated();
@@ -296,7 +220,7 @@ jQuery(document).ready(function () {
                 timeZoneName: 'short'
             };
             return date.toLocaleDateString(resolvedOptions.locale, options);  // Is now a date (in client time zone)
-        }
+        };
 
         self.add_requirement = function (data, event) {
 
@@ -304,7 +228,7 @@ jQuery(document).ready(function () {
             conditions_array.push(new jmespath_model({ "jmespath": ko.observable("") }));
             self.subscription()[0].requirements().push(new conditions_model(conditions_array));
             // Force update
-            var data = self.subscription().slice(0);
+            data = self.subscription().slice(0);
             self.subscription([]);
             self.subscription(data);
             self.subscription.valueHasMutated();
@@ -315,7 +239,7 @@ jQuery(document).ready(function () {
         self.add_condition = function (data, event, requirement_index) {
             self.subscription()[0].requirements()[ko.toJSON(requirement_index)].conditions().push(new jmespath_model({ "jmespath": ko.observable("") }));
             // Force update
-            var data = self.subscription().slice(0);
+            data = self.subscription().slice(0);
             self.subscription([]);
             self.subscription(data);
             self.subscription.valueHasMutated();
@@ -354,29 +278,21 @@ jQuery(document).ready(function () {
 
     // /Stop ## Knockout #####################################################
 
+    // /Start ## Reload Datatables ###########################################
+    function reload_table() {
+        if(table != undefined) {
+            table.ajax.reload(null, false); // reload datatable ajax
+        }
+    }
+    // /Stop ## Reload Datatables ############################################
+
     function checkSecurityAndDrawTable() {
-        var callback = {
-            success: function (responseData, textStatus) {
-                isSecured = JSON.parse(ko.toJSON(responseData)).security;
-                drawTable(isSecured);
-            },
-            error: function (XMLHttpRequest, textStatus, errorThrown) {
-                drawTable(false);
-            },
-            complete: function () {
-                $("#check-all").click(function () {
-                    $(".data-check").prop('checked', $(this).prop('checked'));
-                });
-            }
-        };
-        var ajaxHttpSender = new AjaxHttpSender();
-        var contextPath = "/auth";
-        ajaxHttpSender.sendAjax(contextPath, "GET", null, callback);
+        checkBackendSecured();
+        drawTable();
     }
 
     // /Start ## Datatables ##################################################
-    function drawTable(isSecured) {
-        var currentUser = sessionStorage.getItem("currentUser");
+    function drawTable() {
         table = $('#table').DataTable({
             "responsive": true,
             "autoWidth": false,
@@ -387,13 +303,19 @@ jQuery(document).ready(function () {
             "searching": true,
             // Load data for the table's content from an Ajax source
             "ajax": {
-                "url": addBackendParameter(frontendServiceUrl + "/subscriptions"),
+                "url": addBackendParameter(getFrontEndServiceUrl() + backendEndpoints.SUBSCRIPTIONS),
                 "type": "GET",
                 "dataSrc": "",   // Flat structure from EI backend REST API
                 "error": function () { },
                 "complete": function(data) {
+                    $("#check-all").click(function () {
+                        $(".data-check").prop('checked', $(this).prop('checked'));
+                    });
                     if(data.responseJSON != undefined && data.responseJSON.length > 0) {
                         toggleCheckboxesDisabled(false);
+                        if (!isLdapEnabled()) {
+                            table.column(2).visible(false);
+                        }
                     } else {
                         toggleCheckboxesDisabled(true);
                     }
@@ -466,34 +388,62 @@ jQuery(document).ready(function () {
                     "title": "Action",
                     "data": null,
                     "render": function (data, type, row, meta) {
-                        var unsecureEditAll = isSecured == false;
-                        var securedEditOwn = row.ldapUserName == currentUser && row.ldapUserName != null;
-                        var allUserEditNoOwner = row.ldapUserName.length == 0 && currentUser != undefined;                        
-                        var disableButton = unsecureEditAll || securedEditOwn || allUserEditNoOwner;
-                        
-                        var disablingText = "";                        
-                        if(disableButton == false){                        	
-                        	disablingText = " disabled";
-                        } 
-                        return '<button id="view-' + data.subscriptionName + '" class="btn btn-sm btn-success view_record table-btn">View</button> '
-                            + '<button id="edit-' + data.subscriptionName + '" class="btn btn-sm btn-primary edit_record table-btn"' + disablingText + '>Edit</button> '
-                            + '<button id="delete-' + data.subscriptionName + '" class="btn btn-sm btn-danger delete_record table-btn"' + disablingText + '>Delete</button>';
+                        if (data == undefined || row == undefined) {
+                            logMessage("Subscription data is not defined");
+                            return '';
+                        }
+                        subscriptionOwner = row.ldapUserName;
+                        subscriptionName = data.subscriptionName;
+
+                        disableEditDeleteButtons = isEditAndDeleteButtonsDisabled(subscriptionOwner);
+                        var disablingText = "";
+                        if(disableEditDeleteButtons == true){
+                            disablingText = " disabled";
+                        }
+
+                        return '<button id="view-' + subscriptionName + '" class="btn btn-sm btn-success view_record table-btn">View</button> ' +
+                               '<button id="edit-' + subscriptionName + '" class="btn btn-sm btn-primary edit_record table-btn"' + disablingText + '>Edit</button> ' +
+                               '<button id="delete-' + subscriptionName + '" class="btn btn-sm btn-danger delete_record table-btn"' + disablingText + '>Delete</button>';
                     }
                 }
-            ],
-            "initComplete": function () {
-                if (isSecured == false) {
-                    table.column(2).visible(false);
-                }
-            }
+            ]
         });
-    };
+    }
     checkSecurityAndDrawTable();
 
     $(".main").on('transitionend webkitTransitionEnd oTransitionEnd otransitionend MSTransitionEnd', function () {
         table.responsive.rebuild();
         table.responsive.recalc();
     });
+
+    function isEditAndDeleteButtonsDisabled(subscriptionOwner) {
+        if (!isLdapEnabled()) {
+            // LDAP is NOT activated
+            return false;
+        }
+
+        // Check if subscriptionOwner is defined
+        var isSubscriptionOwnerDefined = isStringDefined(subscriptionOwner);
+        if (isSubscriptionOwnerDefined == false) {
+            // LDAP is NOT activated or is anonymous subscription
+            return false;
+        }
+
+        // Check if current user is logged in
+        var isCurrentUserLoggedIn = isStringDefined(getCurrentUser());
+        if (isCurrentUserLoggedIn == false) {
+            // Current user is not logged in, edit / delete disabled = true
+            return true;
+        }
+
+        var isUserSubscriptionOwner = subscriptionOwner == getCurrentUser() ;
+        if (isUserSubscriptionOwner == false) {
+            // Back end is secured, but current user is not owner to subscription, edit / delete disabled = true
+            return true;
+        }
+
+        return false;
+    }
 
     // /Stop ## Datatables ##################################################
 
@@ -521,7 +471,7 @@ jQuery(document).ready(function () {
                 reload_table();
                 var responseJSON = JSON.parse(XMLHttpRequest.responseText);
                 for (var i = 0; i < responseJSON.length; i++) {
-                    window.logMessages("Error deleting subscription: [" + responseJSON[i].subscription + "] Reason: [" + responseJSON[i].reason + "]");
+                    logMessage("Failed to delete subscription: [" + responseJSON[i].subscription + "] Reason: [" + responseJSON[i].reason + "]");
                 }
             }
         };
@@ -535,24 +485,24 @@ jQuery(document).ready(function () {
                 subscriptionsToDeleteString = subscriptionsToDeleteString.replace(new RegExp('\n', 'g'), ',').slice(0, -1);
             }
             var ajaxHttpSender = new AjaxHttpSender();
-            var contextPath = "/subscriptions/";
-            ajaxHttpSender.sendAjax(contextPath + subscriptionsToDeleteString, "DELETE", null, callback);
+            var endpointWithSubscriptionsToDelete = backendEndpoints.SUBSCRIPTIONS + "/" + subscriptionsToDeleteString;
+            ajaxHttpSender.sendAjax(endpointWithSubscriptionsToDelete, "DELETE", null, callback);
         });
         $('.confirm-delete').modal('show');
-    };
+    }
 
     $("#bulkDelete").click(function () {
         var subscriptionsToDelete = [];
         var data = table.rows().nodes();
         $.each(data, function (index, value) {
             if ($(this).find('input').prop('checked') == true) {
-                subscriptionsToDelete.push(table.row(index).data().subscriptionName)
+                subscriptionsToDelete.push(table.row(index).data().subscriptionName);
             }
         });
 
         // Check if no Subscription has been marked to be deleted.
         if (subscriptionsToDelete.length < 1) {
-            window.logMessages("No subscriptions has been marked to be deleted.");
+            logMessage("No subscriptions has been marked to be deleted.");
             return;
         }
 
@@ -566,18 +516,18 @@ jQuery(document).ready(function () {
     // /Stop ## Bulk delete##################################################
 
     function getTemplate() {
-        var req = new XMLHttpRequest();
-        req.open("GET", frontendServiceUrl + '/download/subscriptionsTemplate', true);
-        req.responseType = "application/json;charset=utf-8";
-        req.onload = function (event) {
+        var request = new XMLHttpRequest();
+        request.open("GET", getFrontEndServiceUrl() + backendEndpoints.DOWNLOAD_SUBSCRIPTIONS_TEMPLATE);
+        request.responseType = "application/json;charset=utf-8";
+        request.onload = function (event) {
             if (this.responseText == "") {
-                window.logMessages("Failed to download template, Error: Could not contact the backend server.");
+                logMessage("Failed to download template. Could not contact the backend server.");
             } else {
-                var jsonData = JSON.stringify(JSON.parse(req.response), null, 2);
+                var jsonData = JSON.stringify(JSON.parse(request.response), null, 2);
                 downloadFile(jsonData, "application/json;charset=utf-8", "subscriptionsTemplate.json");
             }
         };
-        req.send();
+        request.send();
     }
 
     // /Start ## get_subscription_template #################################################
@@ -610,7 +560,7 @@ jQuery(document).ready(function () {
             return true;
         } catch (e) {
             if (logError) {
-                window.logMessages("JSON Format Check Failed:\n" + e.name + "\n" + e.message);
+                logMessage("JSON Format Check Failed:\n" + e.name + "\n" + e.message);
             }
             return false;
         }
@@ -636,19 +586,13 @@ jQuery(document).ready(function () {
                 }
             },
             error: function (XMLHttpRequest, textStatus, errorThrown) {
-                var errorMessage = "";
                 reload_table();
-                var responseJSON = JSON.parse(XMLHttpRequest.responseText);
-                for (var i = 0; i < responseJSON.length; i++) {
-                    errorMessage = errorMessage + responseJSON[i].subscription + " :: " + responseJSON[i].reason + "\n";
-                }
-                window.logMessages("Failed to create Subscriptions:\n" + errorMessage);
+                parseAndLogMessage(XMLHttpRequest.responseText);
             }
         };
         // Perform AJAX
         var ajaxHttpSender = new AjaxHttpSender();
-        var contextPath = "/subscriptions";
-        ajaxHttpSender.sendAjax(contextPath, "POST", ko.toJSON(subscriptionJson), callback);
+        ajaxHttpSender.sendAjax(backendEndpoints.SUBSCRIPTIONS, "POST", ko.toJSON(subscriptionJson), callback);
     }
 
     // /Start ## upload_subscriptions #################################################
@@ -672,14 +616,7 @@ jQuery(document).ready(function () {
             createUploadWindow();
         }
     });
-    // /END ## upload_subscriptions ################################################# 
-    // /Start ## Reload Datatables ###########################################
-    function reload_table() {
-        if(table != undefined) {
-    	    table.ajax.reload(null, false); // reload datatable ajax
-        }
-    }
-    // /Stop ## Reload Datatables ############################################
+    // /END ## upload_subscriptions #################################################
 
     function get_subscription_data(object, mode, event) {
         event.stopPropagation();
@@ -690,9 +627,6 @@ jQuery(document).ready(function () {
         var callback = {
             success: function (responseData, textStatus) {
                 populate_json(responseData, mode);
-            },
-            error: function (XMLHttpRequest, textStatus, errorThrown) {
-                window.logMessages("Error: " + XMLHttpRequest.responseText);
             }
         };
         // Perform AJAX
@@ -750,7 +684,7 @@ jQuery(document).ready(function () {
                 } else {
                     item[0].notificationMessageRawJson = "";
                     for (i = 0; i < item[0].notificationMessageKeyValues.length; i++) {
-                        item[0].notificationMessageKeyValues[i] = new formdata_model(item[0].notificationMessageKeyValues[i])
+                        item[0].notificationMessageKeyValues[i] = new formdata_model(item[0].notificationMessageKeyValues[i]);
                     }
                 }
 
@@ -813,14 +747,14 @@ jQuery(document).ready(function () {
             $('#subscriptionNameInput').addClass("is-invalid");
             error = true;
         }
-
-        // /(\W)/ Is a regex that matches anything that is not [A-Z,a-z,0-8] and _.
-        var regExpression = /(\W)/g;
+        // This regular expression is fetched from the Eiffel-Commons. It is same for both front-end and back-end
+        var regExpressionFlag = "g";
+        var regExpression =  new RegExp(getSubscriptionNameRegex(), regExpressionFlag);
         if ((regExpression.test(subscriptionName))) {
             var invalidLetters = subscriptionName.match(regExpression);
             $('#invalidSubscriptionName').text(
-                "Only letters, numbers and underscore allowed! "
-                + "Invalid characters: [" + invalidLetters + "]");
+                "Only letters, numbers and underscore allowed! " +
+                "Invalid characters: [" + invalidLetters + "]");
             $('#subscriptionNameInput').addClass("is-invalid");
             error = true;
         }
@@ -846,16 +780,16 @@ jQuery(document).ready(function () {
         } else if (!vm.restPost()) {
             // Validate email
             var emails = notificationMeta.split(",");
-            for(var email of emails) {
+            emails.forEach(function(email){
                 email = email.trim();
-                var validEmailRegExpression = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+                // This regular expression is fetched from the Eiffel-Commons. It is same for both front-end and back-end
+                var validEmailRegExpression = new RegExp(getNotificationMetaRegex());
                 var isValidEmailAddress = validEmailRegExpression.test(email);
                 if (!isValidEmailAddress) {
                     $('#invalidNotificationMeta').text(email + " not a valid email.");
                     error = true;
-                    break;
                 }
-            }
+              });
         }
         if (error) {
             $('#notificationMeta').addClass("is-invalid");
@@ -996,7 +930,7 @@ jQuery(document).ready(function () {
         // Delete notificationMessageRawJson since it is not used in back end.
         delete jsonCopiedData[0]['notificationMessageRawJson'];
 
-        return jsonCopiedData
+        return jsonCopiedData;
     }
 
     // /Start ## Save Subscription ##########################################
@@ -1006,7 +940,7 @@ jQuery(document).ready(function () {
 
         var allSubscriptionFieldsIsValid = validateFormPostData();
         if (!allSubscriptionFieldsIsValid) {
-            return
+            return;
         }
 
         // Prepare copy of form data
@@ -1052,8 +986,7 @@ jQuery(document).ready(function () {
         } else if (save_method === 'edit') {  // Update existing
             type = "PUT";
         }
-        var contextPath = "/subscriptions";
-        ajaxHttpSender.sendAjax(contextPath, type, JSON.stringify(formDataToSend), callback);
+        ajaxHttpSender.sendAjax(backendEndpoints.SUBSCRIPTIONS, type, JSON.stringify(formDataToSend), callback);
     });
     // /Stop ## Save Subscription ###########################################
 
@@ -1075,4 +1008,6 @@ jQuery(document).ready(function () {
     function closeTooltip() {
         $('.tooltip').tooltip('hide');
     }
+
+    loadSubButtons();
 });

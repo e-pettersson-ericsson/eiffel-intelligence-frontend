@@ -16,7 +16,7 @@ jQuery(document).ready(function () {
             var context = ko.contextFor(event.target);
             self.rulesBindingList.splice(context.$index(), 1);
             if (self.rulesBindingList().length == 0) {
-                logMessages("Deleted all rule types, but we need atleast one Rule type, Here add default rule type");
+                logMessage("All rule types were deleted, but we need at least one, so we add a default rule.");
                 self.addRule(ruleTemplate);
             }
         };
@@ -26,7 +26,7 @@ jQuery(document).ready(function () {
             var context = ko.contextFor(event.target);
             self.eventsBindingList.splice(context.$index(), 1);
             if (self.eventsBindingList().length == 0) {
-                logMessages("Deleted all events, but we need atleast one event.");
+                logMessage("All events were deleted, but we need at least one, so we add an empty one.");
                 self.addEvent({});
             }
         };
@@ -37,7 +37,7 @@ jQuery(document).ready(function () {
                 try {
                     array.push(JSON.parse(element.data()));
                 } catch (e) {
-                    logMessages("Invalid json rule format :\n" + element.data());
+                    logMessage("Invalid json rule format :\n" + element.data());
                     return false;
                 }
             });
@@ -56,19 +56,11 @@ jQuery(document).ready(function () {
                         $('#aggregatedObjectContent').text(JSON.stringify(responseData, null, 2));
                         $('#aggregatedObjectModal').modal('show');
                     }
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    if (XMLHttpRequest.responseText == "") {
-                        logMessages("Failed to generate the aggregated object, Error: Could not contact the backend server.");
-                    } else {
-                        logMessages("Failed to generate the aggregated object, Error: " + XMLHttpRequest.responseText);
-                    }
                 }
             };
 
             var ajaxHttpSender = new AjaxHttpSender();
-            var contextPath = "/rules/rule-check/aggregation";
-            ajaxHttpSender.sendAjax(contextPath, "POST", JSON.stringify(rulesAndEventsJson), callback);
+            ajaxHttpSender.sendAjax(backendEndpoints.CHECK_AGGREGATION, "POST", JSON.stringify(rulesAndEventsJson), callback);
         };
 
         // This function for adding rule
@@ -128,7 +120,7 @@ jQuery(document).ready(function () {
             try {
                 jsonLintResult = jsonlint.parse(fileContent);
             } catch (e) {
-                logMessages("JSON events Format Check Failed:\n" + e.name + "\n" + e.message);
+                logMessage("JSON events Format Check Failed:\n" + e.name + "\n" + e.message);
                 return false;
             }
             $.jGrowl('JSON events Format Check Succeeded', {
@@ -242,7 +234,7 @@ jQuery(document).ready(function () {
             try {
                 formRules.push(JSON.parse($(this).val()));
             } catch (e) {
-                logMessages("Invalid json format :\n" + $(this).val());
+                logMessage("Invalid json format :\n" + $(this).val());
                 return false;
             }
         });
@@ -250,7 +242,7 @@ jQuery(document).ready(function () {
             var jsonData = JSON.stringify(formRules, null, 2);
             downloadFile(jsonData, "application/json;charset=utf-8", "rules.json");
         } else {
-            logMessages("Data not available for download!");
+            logMessage("Data not available for download!");
         }
     });
 
@@ -261,7 +253,7 @@ jQuery(document).ready(function () {
             try {
                 formEvents.push(JSON.parse($(this).val()));
             } catch (e) {
-                logMessages("Invalid json format :\n" + $(this).val());
+                logMessage("Invalid json format :\n" + $(this).val());
                 return false;
             }
         });
@@ -269,7 +261,7 @@ jQuery(document).ready(function () {
             var jsonData = JSON.stringify(formEvents, null, 2);
             downloadFile(jsonData, "application/json;charset=utf-8", "events.json");
         } else {
-            logMessages("Data not available for download!");
+            logMessage("Data not available for download!");
         }
     });
 
@@ -280,12 +272,12 @@ jQuery(document).ready(function () {
                 downloadFile(jsonString, "application/json;charset=utf-8", name + ".json");
             },
             error: function (XMLHttpRequest, textStatus, errorThrown) {
-                logMessages("Failed to download template, Error: Could not contact the backend server.");
+                logMessage("Failed to download template, Error: Could not contact the backend server.");
             }
         };
 
         var ajaxHttpSender = new AjaxHttpSender();
-        var contextPath = "/download/" + name;
+        var contextPath = backendEndpoints.DOWNLOAD + name;
         ajaxHttpSender.sendAjax(contextPath, "GET", "", callback);
     }
 
@@ -307,13 +299,13 @@ jQuery(document).ready(function () {
     function checkTestRulePageEnabled() {
         var callback = {
             error: function () {
-                addStatusIndicator(statusType.danger, statusText.backend_down);
+                addStatusIndicator(statusType.DANGER, statusText.BACKEND_DOWN);
                 elementsDisabled(true);
             },
             success: function (responseData) {
                 var isEnabled = responseData.status;
                 if (isEnabled != true) {
-                    addStatusIndicator(statusType.warning, statusText.test_rules_disabled);
+                    addStatusIndicator(statusType.WARNING, statusText.TEST_RULES_DISABLED);
                 } else {
                     removeStatusIndicator();
                 }
@@ -321,8 +313,7 @@ jQuery(document).ready(function () {
             }
         };
         var ajaxHttpSender = new AjaxHttpSender();
-        var contextPath = "/rules/rule-check/testRulePageEnabled";
-        ajaxHttpSender.sendAjax(contextPath, "GET", null, callback);
+        ajaxHttpSender.sendAjax(backendEndpoints.TEST_RULES_PAGE_ENABLED, "GET", null, callback);
     }
     // Finish to check backend Test Rule Service status
 
@@ -331,33 +322,11 @@ jQuery(document).ready(function () {
         $('textarea').prop("disabled", disabled);
     }
 
-    // Check EI Backend Server Status ########################################
-    function checkBackendStatus() {
-        var callback = {
-            error: function (XMLHttpRequest, textStatus, errorThrown) {
-                if (XMLHttpRequest.status == 401) {
-                    doIfUserLoggedOut();
-                } else {
-                    doIfSecurityOff();
-                }
-            },
-            success: function (responseData, textStatus) {
-                checkBackendSecured();
-            },
-            complete: function () {
-                checkTestRulePageEnabled();
-            }
-        };
-        var ajaxHttpSender = new AjaxHttpSender();
-        var contentType = "application/string; charset=utf-8";
-        var datatype = "text";
-        var contextPath = "/auth/checkStatus";
-        ajaxHttpSender.sendAjax(contextPath, "GET", null, callback, contentType, datatype);
-    }
-    checkBackendStatus();
+    checkTestRulePageEnabled();
 
-    // Check if EI Backend Server is online every X seconds
-    timerInterval = window.setInterval(function () { checkBackendStatus(); }, 15000);
+    // Check EI Backend Server Status ########################################
+
+    checkBackendStatus();
 
     // END OF EI Backend Server check #########################################
 });

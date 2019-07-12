@@ -2,7 +2,6 @@ jQuery(document).ready(function () {
 	var frontendServiceUrl = $('#frontendServiceUrl').text();
 	var frontendServicePath = "/backend";
 	function instanceModel() {
-		var router = new Navigo(null, true, '#');
 
 		var self = this;
 		self.instance = {
@@ -28,11 +27,11 @@ jQuery(document).ready(function () {
 					contentType: 'application/json; charset=utf-8',
 					cache: false,
 					error: function (XMLHttpRequest, textStatus, errorThrown) {
-						window.logMessages(JSON.parse(XMLHttpRequest.responseText)["message"]);
+						parseAndLogMessage(XMLHttpRequest.responseText);
 					},
 					success: function (responseData, XMLHttpRequest, textStatus) {
 						$.jGrowl(responseData.message, { sticky: false, theme: 'Notify' });
-						router.navigate('switch-backend');
+						navigateToRoute('switch-backend');
 					}
 				});
 			}

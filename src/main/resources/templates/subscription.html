@@ -26,19 +26,27 @@
         </div>
         <div id="subButtons" class="pb-1 col-12 hidden_by_default">
             <button id="addSubscription" class="mt-1 btn btn-success add_subscription show_if_authorized">
-                <i class="glyphicon glyphicon-plus"></i> Add Subscription
+                <i class="fa fa-fw fa-plus logged-in-buttons"></i>
+                <i class="fa fa-fw fa-lock logged-out-buttons hidden_by_default"></i>
+                Add Subscription
             </button>
-            <button id="reloadButton" class="mt-1 btn btn-default table_reload">
-                <i class="glyphicon glyphicon-refresh"></i> Reload
+            <button id="uploadSubscription" class="mt-1 btn btn-success upload_subscriptions show_if_authorized">
+                <i class="fa fa-fw fa-upload logged-in-buttons"></i>
+                <i class="fa fa-fw fa-lock logged-out-buttons hidden_by_default"></i>
+                Upload Subscriptions
             </button>
             <button id="bulkDelete" class="mt-1 btn btn-danger bulk_delete show_if_authorized">
-                <i class="glyphicon glyphicon-trash"></i> Bulk Delete
+                <i class="fa fa-fw fa-trash logged-in-buttons"></i>
+                <i class="fa fa-fw fa-lock logged-out-buttons hidden_by_default"></i>
+                Bulk Delete
+            </button>
+            <button id="reloadButton" class="mt-1 btn btn-primary table_reload">
+                <i class="fa fa-fw fa-refresh"></i>
+                Reload
             </button>
             <button id="getTemplateButton" class="mt-1 btn btn-primary get_subscription_template">
-                <i class="glyphicon glyphicon-download"></i> Get Template
-            </button>
-            <button id="uploadSubscription" class="mt-1 btn btn-info upload_subscriptions show_if_authorized">
-                <i class="glyphicon glyphicon-upload"></i>Upload Subscriptions
+                <i class="fa fa-fw fa-download"></i>
+                Get Template
             </button>
             <input class="hide" type='file' id='upload_sub' name='file' />
         </div>
@@ -253,14 +261,22 @@
 
                         <!--  AUTHENTICATION  -->
                         <div class="pt-3 form-group">
-                            <label class="h5 pl-1 control-label font-weight-bold">Authorization</label>
+                            <label class="h5 pl-1 control-label font-weight-bold">Authentication</label>
+                            <img class="cursor-pointer" id="authInfo" alt="Auth Info"
+                                src="assets/images/information.png" data-toggle="tooltip" data-placement="top"
+                                title="This selector enables you to select different authentication methods. <br>
+                                    NO_AUTH: No Authentication used<br>
+                                    BASIC_AUTH: Username and password will be Base 64 encoded<br>
+                                    BASIC_AUTH Jenkins CSRF Protection (crumb): Username and password will be Base 64 encoded.
+                                    A crumb will be fetched automatically before request is made. (Currently default in many Jenkins instances)
+                                    Will work even when CSRF is disabled in Jenkins" />
                             <div>
                                 <select id="selectAuth" title="Choose an authentication type" data-bind="options: $root.authenticationType_in,
                                     optionsText: 'text', optionsValue: 'value', value: authenticationType">
                                 </select>
                             </div>
                         </div>
-                        <div class="p-1 border form-group" data-bind="visible: authenticationType() == 'BASIC_AUTH'">
+                        <div class="p-1 border form-group" data-bind="visible: authenticationType() != 'NO_AUTH'">
                             <label class="pt-1 control-label font-weight-bold">Username</label>
                             <div>
                                 <input id="userNameInput" title="Enter user name" data-bind="textInput:userName"

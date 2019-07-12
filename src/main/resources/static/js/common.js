@@ -1,20 +1,21 @@
-var router = new Navigo(null, true, '#');
-var frontendServiceUrl = $('#frontendServiceUrl').text();
-var frontendServiceBackEndPath = "/backend";
-var timerInterval;
+function stringContainsSubstring(string, substring) {
+    var isSubstring = string.indexOf(substring) !== -1;
+    return isSubstring;
+}
 
 function addBackendParameter(url) {
+    var parameterKey = "backendname";
+
     if (!sessionStorage.selectedActive) {
         return url;
     }
-    var delimiter = "";
-    var parameterKey = "backendname";
 
-    if (url.includes("?")) {
+    var delimiter = "?";
+    if (stringContainsSubstring(url, delimiter)) {
+        // url has delimeter ?, then delimeter should be &
         delimiter = "&";
-    } else {
-        delimiter = "?";
     }
+
     url = url + delimiter + parameterKey + "=" + sessionStorage.selectedActive;
     return url;
 }
@@ -32,7 +33,7 @@ AjaxHttpSender.prototype.sendAjax = function (contextPath, type, data, callback,
     if (!dataType) {
         dataType = "json";
     }
-    url = addBackendParameter(frontendServiceUrl+contextPath)
+    var url = addBackendParameter(getFrontEndServiceUrl() + contextPath);
     $.ajax({
         url: url,
         type: type,
@@ -48,6 +49,8 @@ AjaxHttpSender.prototype.sendAjax = function (contextPath, type, data, callback,
         error: function (XMLHttpRequest, textStatus, errorThrown) {
             if(typeof callback.error === 'function') {
                 callback.error(XMLHttpRequest, textStatus, errorThrown);
+            } else {
+                parseAndLogMessage(XMLHttpRequest.responseText);
             }
         },
         success: function (responseData, textStatus) {
@@ -61,9 +64,10 @@ AjaxHttpSender.prototype.sendAjax = function (contextPath, type, data, callback,
             }
         }
     });
-}
+};
 // /Stop ## Global AJAX Sender function ##################################
 
+// Start ## Common functions ##
 function formatUrl(host, port, useHttps, contextPath) {
     var protocol = "http";
     if (useHttps) {
@@ -87,38 +91,47 @@ function formatUrl(host, port, useHttps, contextPath) {
     return protocol + "://" + host + port + contextPath;
 }
 
+function isString(value) {
+    var isString = typeof value === 'string' || value instanceof String;
+    return isString;
+}
+
+function isStringDefined(value) {
+    var isDefined = false;
+    if (isString(value)) {
+        isDefined = value.length != 0;
+    }
+    return isDefined;
+}
+
+// /Stop ## Common functions ##################################
+
 // Start ## Routing ##
 var routes = {};
 routes["subscriptions"] = function () {
-    window.clearInterval(timerInterval);
     updateBackEndInstanceList();
     $(".app-header").removeClass("header-bar-hidden");
     $(".main").load("subscriptionpage.html");
 };
 routes["test-rules"] = function () {
-    window.clearInterval(timerInterval);
     updateBackEndInstanceList();
     $(".app-header").removeClass("header-bar-hidden");
     $(".main").load("testRules.html");
 };
 routes["ei-info"] = function () {
-    window.clearInterval(timerInterval);
     updateBackEndInstanceList();
     $(".app-header").removeClass("header-bar-hidden");
     $(".main").load("eiInfo.html");
 };
 routes["switch-backend"] = function () {
-    window.clearInterval(timerInterval);
     $(".app-header").addClass("header-bar-hidden");
     $(".main").load("switch-backend.html");
 };
 routes["add-backend"] = function () {
-    window.clearInterval(timerInterval);
     $(".app-header").addClass("header-bar-hidden");
     $(".main").load("add-instances.html");
 };
 routes["login"] = function () {
-    window.clearInterval(timerInterval);
     updateBackEndInstanceList();
     $(".app-header").removeClass("header-bar-hidden");
     $(".main").load("login.html");
@@ -141,7 +154,7 @@ function reloadRoute() {
     routes[currentUrl]();
 }
 
-function navigateRoute(route) {
+function navigateToRoute(route) {
     router.navigate(route);
 }
 // End ## Routing ##
@@ -149,12 +162,12 @@ function navigateRoute(route) {
 // Start ## Load Back end list ##
 function updateBackEndInstanceList() {
     $.ajax({
-        url: frontendServiceUrl + frontendServiceBackEndPath,
+        url: getFrontEndServiceUrl() + getFrontendServiceBackEndPath(),
         type: "GET",
         contentType: 'application/json; charset=utf-8',
         cache: false,
         error: function (XMLHttpRequest, textStatus, errorThrown) {
-            window.logMessages("Failure when trying to load backend instances");
+            parseAndLogMessage(XMLHttpRequest.responseText);
         },
         success: function (responseData, XMLHttpRequest, textStatus) {
             var observableObject = $("#selectInstances")[0];
@@ -164,20 +177,19 @@ function updateBackEndInstanceList() {
     });
 }
 
-function singleInstanceModel(name, host, port, contextPath, https, active) {
-    this.name = ko.observable(name),
-        this.host = ko.observable(host),
-        this.port = ko.observable(port),
-        this.contextPath = ko.observable(contextPath),
-        this.https = ko.observable(https),
-        this.active = ko.observable(active),
-        this.information = name.toUpperCase() + " - " + host + " " + port + "/" + contextPath;
+function singleInstanceModel(name, host, port, contextPath, https, active, defaultBackend) {
+    this.name = ko.observable(name);
+    this.host = ko.observable(host);
+    this.port = ko.observable(port);
+    this.contextPath = ko.observable(contextPath);
+    this.https = ko.observable(https);
+    this.active = ko.observable(active);
+    this.defaultBackend = ko.observable(defaultBackend);
+    this.information = name.toUpperCase() + " - " + host + " " + port + "/" + contextPath;
 }
 
-function viewModel(backendInstanceData) {
-    var self = this;
-    self.instances = ko.observableArray();
-    var jsonBackendInstanceData = JSON.parse(ko.toJSON(backendInstanceData));
+function getInstanceModels(jsonBackendInstanceData) {
+    instanceModels = [];
 
     for (var i = 0; i < jsonBackendInstanceData.length; i++) {
         var instanceData = jsonBackendInstanceData[i];
@@ -187,9 +199,10 @@ function viewModel(backendInstanceData) {
         var port = instanceData.port;
         var https = instanceData.https;
         var contextPath = instanceData.contextPath;
+        var defaultBackend = instanceData.defaultBackend;
 
         var thisInstanceShouldBeSelectedAsActive =
-            instanceData.defaultBackend == true && !sessionStorage.selectedActive ||
+            defaultBackend == true && !sessionStorage.selectedActive ||
             sessionStorage.selectedActive && sessionStorage.selectedActive == name;
 
         if (thisInstanceShouldBeSelectedAsActive) {
@@ -198,11 +211,23 @@ function viewModel(backendInstanceData) {
         }
 
         sessionStorage.setItem(name, formatUrl(host, port, https, contextPath));
-        var singleInstance = new singleInstanceModel(name, host, port, contextPath, https, isActive);
-        self.instances.push(singleInstance);
+        var singleInstance = new singleInstanceModel(name, host, port, contextPath, https, isActive, defaultBackend);
+        instanceModels.push(singleInstance);
     }
+    return instanceModels;
+}
 
+function viewModel(backendInstanceData) {
+    var self = this;
+
+    var jsonBackendInstanceData = JSON.parse(ko.toJSON(backendInstanceData));
+    var instanceModels = getInstanceModels(jsonBackendInstanceData);
     self.selectedActive = ko.observable(sessionStorage.selectedActive);
+
+    self.instances = ko.observableArray();
+    instanceModels.forEach(function (instanceModel) {
+        self.instances.push(instanceModel);
+    });
 
     self.onChange = function () {
         if (typeof self.selectedActive() !== "undefined") {
@@ -211,34 +236,68 @@ function viewModel(backendInstanceData) {
         } else {
             $.jGrowl("Please choose backend instance", { sticky: false, theme: 'Error' });
         }
-    }
+    };
 }
 // End ## Load Back end list ##
 
 // Start ## Login and Security ##
-function doIfUserLoggedIn(user) {
-    sessionStorage.removeItem("currentUser");
-    sessionStorage.setItem("currentUser", user);
-    $("#userItem").show();
-    $("#userItem").addClass("user-login");
-    $("#ldapUserName").text(user);
-    $("#loginBlock").hide();
-    $("#logoutBlock").show();
-    $(".show_if_authorized").prop('disabled', false); 
+function functionsToExecuteIfUserIsLoggedIn(username) {
+    setCurrentUser(username);
+    showLoggedInUserInformation(username);
+    unlockSubscriptionButtons();
 }
 
-function doIfUserLoggedOut() {
-    sessionStorage.removeItem("currentUser");
+function showLoggedInUserInformation(username) {
     $("#userItem").show();
-    $("#userItem").removeClass("user-login");
-    $("#ldapUserName").text("Guest");
-    $("#loginBlock").show();
-    $("#logoutBlock").hide();
-    $(".show_if_authorized").prop('disabled', true);
+    $("#login-nav-bar-icon").addClass("user-login-icon");
+    $("#login-nav-bar-text").text(cropUsername(username));
+    $("#ldapUserName").text(username);
+    $("#loginBlock").hide();
+    $("#logoutBlock").show();
+}
+
+function unlockSubscriptionButtons() {
+    $(".logged-out-buttons").addClass("hidden_by_default");
+    $(".logged-in-buttons").removeClass("hidden_by_default");
+    $(".show_if_authorized").prop('disabled', false);
+    $(".show_if_authorized").prop('title', "");
+}
+
+function cropUsername(username) {
+    var ellipsis = "...";
+
+    if (username.length <= getUsernameMaxDisplayLength()) {
+        return username;
+    }
+
+    var breakUsernameAtIndex = getUsernameMaxDisplayLength() - ellipsis.length;
+    return username.substr(0, breakUsernameAtIndex) + ellipsis;
+}
+
+function functionsToExecuteIfUserIsLoggedOut() {
+    setCurrentUser("");
+    showUserLoggedOutInformation();
+    lockSubscriptionButtons();
     sessionStorage.setItem('errorsStore', []);
 }
 
-function doIfSecurityOff() {
+function showUserLoggedOutInformation() {
+    $("#userItem").show();
+    $("#login-nav-bar-icon").removeClass("user-login-icon");
+    $("#login-nav-bar-text").text("Login");
+    $("#ldapUserName").text("Guest");
+    $("#loginBlock").show();
+    $("#logoutBlock").hide();
+}
+
+function lockSubscriptionButtons() {
+    $(".logged-out-buttons").removeClass("hidden_by_default");
+    $(".logged-in-buttons").addClass("hidden_by_default");
+    $(".show_if_authorized").prop('disabled', true);
+    $(".show_if_authorized").prop('title', 'Please login to enable!');
+}
+
+function executeIfLdapIsDeactivated() {
     $("#userItem").hide();
     $("#ldapUserName").text("");
 }
@@ -246,60 +305,34 @@ function doIfSecurityOff() {
 function checkBackendSecured() {
     var callback = {
         success: function (responseData, textStatus) {
-            var isSecured = JSON.parse(ko.toJSON(responseData)).security;
-            if (isSecured == true) {
+            var ldapStatus = responseData.security;
+            setLdapEnabled(ldapStatus);
+            if (isLdapEnabled()) {
                 checkLoggedInUser();
             } else {
-                doIfSecurityOff();
+                executeIfLdapIsDeactivated();
             }
         },
         error: function (XMLHttpRequest, textStatus, errorThrown) {
-            doIfSecurityOff();
+            executeIfLdapIsDeactivated();
         }
     };
     var ajaxHttpSender = new AjaxHttpSender();
-    var contextPath = "/auth";
-    ajaxHttpSender.sendAjax(contextPath, "GET", null, callback);
+    ajaxHttpSender.sendAjax(backendEndpoints.AUTH, "GET", null, callback);
 }
 
 function checkLoggedInUser() {
     var callback = {
         success: function (responseData, textStatus) {
             var userFromBackEnd = responseData.user;
-            doIfUserLoggedIn(userFromBackEnd);
+            functionsToExecuteIfUserIsLoggedIn(userFromBackEnd);
         },
         error: function (XMLHttpRequest, textStatus, errorThrown) {
-            doIfUserLoggedOut();
+            functionsToExecuteIfUserIsLoggedOut();
         }
     };
     var ajaxHttpSender = new AjaxHttpSender();
-    var contextPath = "/auth/login";
-    ajaxHttpSender.sendAjax(contextPath, "GET", null, callback);
+    ajaxHttpSender.sendAjax(backendEndpoints.LOGIN, "GET", null, callback);
 }
+
 // End ## Login and Security ##
-
-// Start ## Status Indicator ##
-var statusType = {
-    success: "alert-success",
-    info: "alert-info",
-    warning: "alert-warning",
-    danger: "alert-danger"
-};
-
-var statusText = {
-    backend_down: "<strong>Back end is down!</strong> Wait for it go up or switch to another back end before continuing!",
-    test_rules_disabled: "<strong>Test Rule service is disabled!</strong> To enable it set the backend property [testaggregated.enabled] as [true]"
-}
-
-function addStatusIndicator(statusType, statusText) {
-    var statusIndicator = $(".content")[0].previousElementSibling;
-    if (statusIndicator != null) {
-        $($(".content")[0].previousElementSibling).remove();
-    }
-    $(".content").before("<div class=\"subscription-alert alert " + statusType + "\">" + statusText + "</div>");
-}
-
-function removeStatusIndicator() {
-    $($(".content")[0].previousElementSibling).remove();
-}
-// End ## Status Indicator ##
